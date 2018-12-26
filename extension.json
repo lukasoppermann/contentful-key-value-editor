@@ -1,0 +1,6 @@
+{
+  "id": "jsonFormEditor",
+  "name": "JSON Form Editor",
+  "srcdoc": "./index.html",
+  "fieldTypes": ["Object"]
+}
