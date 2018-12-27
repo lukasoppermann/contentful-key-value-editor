@@ -1,6 +1,6 @@
 {
-  "id": "jsonFormEditor",
-  "name": "JSON Form Editor",
+  "id": "keyValueEditor",
+  "name": "Key Value Editor",
   "srcdoc": "./index.html",
   "fieldTypes": ["Object"]
 }
