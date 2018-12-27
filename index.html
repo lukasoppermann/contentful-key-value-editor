@@ -41,10 +41,13 @@
     </style>
   </head>
   <body>
+    <!-- TEMPLATE -->
     <template id="item">
       <div class="item cf-form-field">
         <input type="text" placeholder="Name" class="cf-form-input input input--key"/>
         <input type="text" placeholder="Value" class="cf-form-input input input--value"/>
+        <select class="cfnext-select-box">
+        </select>
         <button data-purpose="delete" class="delete-button">
           <cf-icon name="delete">
             <svg width="14" height="14" viewBox="-1 -1 16 16" xmlns="http://www.w3.org/2000/svg"><g fill="currentColor"><path d="M4.846 7l-3.77-3.77L0 2.155 2.154 0 3.23 1.077 7 4.847l3.77-3.77L11.845 0 14 2.154 12.923 3.23 9.153 7l3.77 3.77L14 11.845 11.846 14l-1.077-1.077L7 9.153l-3.77 3.77L2.155 14 0 11.846l1.077-1.077z"></path></g></svg>
@@ -52,90 +55,124 @@
         </button>
       </div>
     </template>
+    <!-- TEMPLATE -->
+    <!-- WIDGET -->
     <div class="items">
-
     </div>
     <button class="cf-btn-secondary" data-purpose="add">Add Item</button>
-
+    <!-- WIDGET -->
     <script type="text/javascript">
-      let cfExt = window.contentfulExtension || window.contentfulWidget
+      // elements
+      let items = document.querySelector('.items')
+      let parameters = {
+        keyLabel: extension.parameters.instance.keyLabel,
+        valueLabel: extension.parameters.instance.valueLabel,
+        typeSelect: extension.parameters.instance.typeSelect.split(",").map(string => string.trim())
+      }
+      // add items
+      let createItem = (template, values) => {
+        // clone template
+        let clone = document.importNode(template.content, true)
+        let keyInput = clone.querySelector(".input--key")
+        let valueInput = clone.querySelector(".input--value")
+        // set placeholders
+        keyInput.setAttribute('placeholder', parameters.keyLabel)
+        valueInput.setAttribute('placeholder', parameters.valueLabel)
+        // set values if defined
+        if (values !== undefined) {
+          keyInput.value = values.key || ''
+          valueInput.value = values.value || ''
+        }
+        // add type Select
+        let select = clone.querySelector("select")
+        if (parameters.typeSelect.length > 0) {
+          let selectOptions = ""
+          parameters.typeSelect.forEach(option => selectOptions + `<option value="${option}">${option}</option>`)
+          select.innerHTML = selectOptions
+        } else {
+          select.remove()
+        }
+        // return item
+        return clone
+      }
 
-      cfExt.init(initContentfulKeyValueEditor)
-      function initContentfulKeyValueEditor (cfApi) {
+      let addItem = (container, extension, values) => {
+        // get item template
+        let template = document.querySelector('#item')
+        // add item to items
+        container.appendChild(createItem(template, item))
+        // update height
+        extension.window.updateHeight()
+      }
+
+      let removeItem = (item, extension) => {
+        if (!item.classList.contains("item")) {
+          item = item.closest(".item")
+        }
+        item.remove()
+        extension.window.updateHeight()
+      }
+
+      // http://davidwalsh.name/javascript-debounce-function
+      let debounce = (func, wait) => {
+          var timeout;
+          return function () {
+              var context = this, args = arguments;
+              var later = function () {
+                  timeout = null;
+                  func.apply(context, args);
+              };
+              clearTimeout(timeout);
+              timeout = setTimeout(later, wait);
+              if (!timeout) func.apply(context, args);
+          };
+      }
+      let validateAndSave = (items, extension) => {
+        // get json
+        let json = items.querySelectorAll('.item').map(item => {
+          return {
+            key: item.querySelector('.input--key').value
+            value: item.querySelector('.input--value').value
+          }
+        }).filter((item) => item.key === '' && item.key === '')
+
+        extension.field.setValue(json)
+      }
+
+      let debouncedValidateAndSave = (items, extension) => debounce(validateAndSave(items, extension), 150)
+      // extension
+      let initContentfulKeyValueEditor = extension => {
         // start autoresiser
-        cfApi.window.startAutoResizer();
-
-        let itemTemplate = document.querySelector('#item')
-        let items = document.querySelector('.items')
+        extension.window.startAutoResizer();
         // add initial item
-        let fields = cfApi.field.getValue()
-        fields.forEach( item => {
-          let clone = document.importNode(itemTemplate.content, true)
-          let inputs = clone.querySelectorAll("input")
-          inputs[0].value = item.name
-          inputs[1].value = item.value
-          items.appendChild(clone)
+        let fields = extension.field.getValue()
+        fields.forEach( values => {
+          addItem(items, extension, values)
         })
-
+        // add initial empty field to the end
+        addItem(items, extension)
         // on change
         items.addEventListener('keyup', (e) => {
-          validateAndSave()
+          debouncedValidateAndSave(items, extension)
         }, true)
         // delete items on x click
         items.addEventListener('click', (e) => {
-            if (e.target.getAttribute('data-purpose') === 'delete') {
-              let item = e.target.closest(".item")
-              item.remove()
-              cfApi.window.updateHeight();
-              validateAndSave()
-              items.dispatchEvent(new CustomEvent('updated', { detail: {
-                itemCount: items.querySelectorAll('.item').length
-              } }))
+          if (e.target.getAttribute('data-purpose') === 'delete') {
+            removeItem(e.target, extension)
+            debouncedValidateAndSave(items, extension)
+            // add item if otherwise no item exists
+            if (items.querySelectorAll('.item').length === 0) {
+              addItem(items, extension)
             }
+          }
         })
         // add item on add button click
         document.querySelector('[data-purpose=add]').addEventListener('click', (e) => {
-          items.appendChild(document.importNode(itemTemplate.content, true))
-          cfApi.window.updateHeight();
+          addItem(items, extension)
         })
-        // add item if 0 left
-        items.addEventListener('updated', e => {
-          if (e.detail.itemCount === 0) {
-            items.appendChild(document.importNode(itemTemplate.content, true))
-            cfApi.window.updateHeight();
-          }
-        })
-
-        var validateAndSave = debounce(function () {
-          let currentJSON = []
-          items.querySelectorAll('.item').forEach(item => {
-            console.log(item, item.querySelector('.input--key'))
-            let key = item.querySelector('.input--key').value
-            let value = item.querySelector('.input--value').value
-            if (key !== "" || value !== "")
-            currentJSON.push({
-              name: key,
-              value: value
-            })
-          })
-          cfApi.field.setValue(currentJSON)
-        }, 150);
-
-        // http://davidwalsh.name/javascript-debounce-function
-        function debounce (func, wait) {
-            var timeout;
-            return function () {
-                var context = this, args = arguments;
-                var later = function () {
-                    timeout = null;
-                    func.apply(context, args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-                if (!timeout) func.apply(context, args);
-            };
-        }
       }
+      // init extension
+      (window.contentfulExtension || window.contentfulWidget).init(initContentfulKeyValueEditor)
     </script>
 
   </body>
