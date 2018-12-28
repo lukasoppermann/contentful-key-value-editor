@@ -22,6 +22,9 @@
         margin-left: 10px;
         flex: 3;
       }
+      select {
+        flex: 1;
+      }
       .delete-button{
         border: none;
         background: transparent;
@@ -46,7 +49,7 @@
       <div class="item cf-form-field">
         <input type="text" placeholder="Name" class="cf-form-input input input--key"/>
         <input type="text" placeholder="Value" class="cf-form-input input input--value"/>
-        <select class="cfnext-select-box">
+        <select class="cf-form-input">
         </select>
         <button data-purpose="delete" class="delete-button">
           <cf-icon name="delete">
@@ -64,13 +67,8 @@
     <script type="text/javascript">
       // elements
       let items = document.querySelector('.items')
-      let parameters = {
-        keyLabel: extension.parameters.instance.keyLabel,
-        valueLabel: extension.parameters.instance.valueLabel,
-        typeSelect: extension.parameters.instance.typeSelect.split(",").map(string => string.trim())
-      }
       // add items
-      let createItem = (template, values) => {
+      let createItem = (template, parameters, values) => {
         // clone template
         let clone = document.importNode(template.content, true)
         let keyInput = clone.querySelector(".input--key")
@@ -86,9 +84,13 @@
         // add type Select
         let select = clone.querySelector("select")
         if (parameters.typeSelect.length > 0) {
-          let selectOptions = ""
-          parameters.typeSelect.forEach(option => selectOptions + `<option value="${option}">${option}</option>`)
-          select.innerHTML = selectOptions
+          select.innerHTML = parameters.typeSelect.map(option => {
+            let selected = ""
+            if (values !== undefined && option === values.type) {
+              selected = ` selected="selected"`
+            }
+            return `<option value="${option}"${selected}>${option}</option>`
+          }).join('')
         } else {
           select.remove()
         }
@@ -96,11 +98,11 @@
         return clone
       }
 
-      let addItem = (container, extension, values) => {
+      let addItem = (container, extension, parameters, values) => {
         // get item template
         let template = document.querySelector('#item')
         // add item to items
-        container.appendChild(createItem(template, item))
+        container.appendChild(createItem(template, parameters, values))
         // update height
         extension.window.updateHeight()
       }
@@ -129,30 +131,39 @@
       }
       let validateAndSave = (items, extension) => {
         // get json
-        let json = items.querySelectorAll('.item').map(item => {
+        let json = Array.from(items.querySelectorAll('.item')).map(item => {
           return {
-            key: item.querySelector('.input--key').value
-            value: item.querySelector('.input--value').value
+            key: item.querySelector('.input--key').value,
+            value: item.querySelector('.input--value').value,
+            type: item.querySelector('select').value
           }
-        }).filter((item) => item.key === '' && item.key === '')
-
+        }).filter((item) => item.key !== '' || item.key !== '')
         extension.field.setValue(json)
       }
 
       let debouncedValidateAndSave = (items, extension) => debounce(validateAndSave(items, extension), 150)
       // extension
       let initContentfulKeyValueEditor = extension => {
+        let parameters = {
+          keyLabel: extension.parameters.instance.keyLabel,
+          valueLabel: extension.parameters.instance.valueLabel,
+          typeSelect: extension.parameters.instance.typeSelect.split(",").map(string => string.trim()).filter((item) => item !== "")
+        }
         // start autoresiser
         extension.window.startAutoResizer();
         // add initial item
-        let fields = extension.field.getValue()
+        let fields = extension.field.getValue() || []
         fields.forEach( values => {
-          addItem(items, extension, values)
+          addItem(items, extension, parameters, values)
         })
         // add initial empty field to the end
-        addItem(items, extension)
+        addItem(items, extension, parameters)
+        // on keyup
+        items.addEventListener('keyup', () => {
+          debouncedValidateAndSave(items, extension)
+        }, true)
         // on change
-        items.addEventListener('keyup', (e) => {
+        items.addEventListener('change', () => {
           debouncedValidateAndSave(items, extension)
         }, true)
         // delete items on x click
@@ -162,13 +173,13 @@
             debouncedValidateAndSave(items, extension)
             // add item if otherwise no item exists
             if (items.querySelectorAll('.item').length === 0) {
-              addItem(items, extension)
+              addItem(items, extension, parameters)
             }
           }
         })
         // add item on add button click
-        document.querySelector('[data-purpose=add]').addEventListener('click', (e) => {
-          addItem(items, extension)
+        document.querySelector('[data-purpose=add]').addEventListener('click', () => {
+          addItem(items, extension, parameters)
         })
       }
       // init extension
