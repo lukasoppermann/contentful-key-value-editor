@@ -6,24 +6,17 @@
   "parameters": {
     "instance": [
       {
-        "id": "keyLabel",
-        "name": "Label for key",
-        "description": "Set the placeholder label for the key field",
+        "id": "keys",
+        "name": "Predefined values for key",
+        "description": "Leave empty for free input. A comma separated list will be turned into a dropdown. Use 'Label:value' to define a seperate label.",
         "type": "Symbol",
-        "default": "Name"
+        "default": ""
       },
       {
-        "id": "valueLabel",
-        "name": "Label for value",
-        "description": "Set the placeholder label for the value field",
+        "id": "optionalParameter",
         "type": "Symbol",
-        "default": "Value"
-      },
-      {
-        "id": "typeSelect",
-        "type": "Symbol",
-        "name": "Type Dropdown",
-        "description": "Comma separated list of items for value dropdown",
+        "name": "Optional parameter",
+        "description": "Comma separated list of items for optional dropdown. Use 'Label:value' to define a seperate label.",
         "default": ""
      }
     ]

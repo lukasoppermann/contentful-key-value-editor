@@ -12,17 +12,14 @@
         width: 100%;
         display: flex;
       }
-      .input{
+      .data--key{
         flex: 1;
       }
-      .input--key{
-
-      }
-      .input--value{
+      .data--value{
         margin-left: 10px;
         flex: 3;
       }
-      select {
+      .data--optionalParameter {
         flex: 1;
       }
       .delete-button{
@@ -45,12 +42,16 @@
   </head>
   <body>
     <!-- TEMPLATE -->
+    <template id="select">
+      <select class="cf-form-input">
+      </select>
+    </template>
+
     <template id="item">
       <div class="item cf-form-field">
-        <input type="text" placeholder="Name" class="cf-form-input input input--key"/>
-        <input type="text" placeholder="Value" class="cf-form-input input input--value"/>
-        <select class="cf-form-input">
-        </select>
+        <input type="text" placeholder="Key" class="cf-form-input input data--key"/>
+        <input type="text" placeholder="Value" class="cf-form-input input data--value"/>
+        <div id="optionalParameter"></div>
         <button data-purpose="delete" class="delete-button">
           <cf-icon name="delete">
             <svg width="14" height="14" viewBox="-1 -1 16 16" xmlns="http://www.w3.org/2000/svg"><g fill="currentColor"><path d="M4.846 7l-3.77-3.77L0 2.155 2.154 0 3.23 1.077 7 4.847l3.77-3.77L11.845 0 14 2.154 12.923 3.23 9.153 7l3.77 3.77L14 11.845 11.846 14l-1.077-1.077L7 9.153l-3.77 3.77L2.155 14 0 11.846l1.077-1.077z"></path></g></svg>
@@ -69,33 +70,57 @@
       let items = document.querySelector('.items')
       // add items
       let createItem = (template, parameters, values) => {
+        values = values || {
+          key: '',
+          value: '',
+          optionalParameter: ''
+        }
         // clone template
         let clone = document.importNode(template.content, true)
-        let keyInput = clone.querySelector(".input--key")
-        let valueInput = clone.querySelector(".input--value")
-        // set placeholders
-        keyInput.setAttribute('placeholder', parameters.keyLabel)
-        valueInput.setAttribute('placeholder', parameters.valueLabel)
-        // set values if defined
-        if (values !== undefined) {
-          keyInput.value = values.key || ''
-          valueInput.value = values.value || ''
+        // value input
+        let valueInput = clone.querySelector(".data--value")
+        valueInput.value = values.value
+        // key input or select
+        let keyInput = clone.querySelector(".data--key")
+        if (parameters.keys.length === 0) {
+          keyInput.value = values.key
+        } else {
+          keyInput.parentNode.replaceChild(createDropdown('key', parameters.keys, values.key), keyInput)
         }
         // add type Select
-        let select = clone.querySelector("select")
-        if (parameters.typeSelect.length > 0) {
-          select.innerHTML = parameters.typeSelect.map(option => {
-            let selected = ""
-            if (values !== undefined && option === values.type) {
-              selected = ` selected="selected"`
-            }
-            return `<option value="${option}"${selected}>${option}</option>`
-          }).join('')
-        } else {
-          select.remove()
+        let optionalParameterDropdown = createDropdown('optionalParameter', parameters.optionalParameter, values.optionalParameter)
+        if (optionalParameterDropdown !== null) {
+          let optionalParameter = clone.querySelector('#optionalParameter')
+          optionalParameter.parentNode.replaceChild(optionalParameterDropdown, optionalParameter)
         }
         // return item
         return clone
+      }
+
+      let createDropdown = (name, data, selectedValue) => {
+        // abort if no data
+        if (data.length === 0) {
+          return null
+        }
+        // add select option
+        // get select html
+        let template = document.querySelector('#select')
+        let selectFragment = document.importNode(template.content, true)
+        let select = selectFragment.querySelector('select')
+        // add content
+        select.classList.add(`data--${name}`)
+        let options = data.map(option => {
+          let selected = ""
+          if (option.value === selectedValue) {
+            selected = ` selected="selected"`
+          }
+          return `<option value="${option.value}"${selected}>${option.label}</option>`
+        })
+        options.unshift(`<option value="">-- Select --</option>`)
+
+        select.innerHTML = options.join('')
+
+        return select
       }
 
       let addItem = (container, extension, parameters, values) => {
@@ -132,22 +157,36 @@
       let validateAndSave = (items, extension) => {
         // get json
         let json = Array.from(items.querySelectorAll('.item')).map(item => {
-          return {
-            key: item.querySelector('.input--key').value,
-            value: item.querySelector('.input--value').value,
-            type: item.querySelector('select').value
+          let optionalParameter = item.querySelector('.data--optionalParameter')
+          if (optionalParameter !== null) {
+            optionalParameter = optionalParameter.value || null
           }
-        }).filter((item) => item.key !== '' || item.key !== '')
+
+          return {
+            key: item.querySelector('.data--key').value || null,
+            value: item.querySelector('.data--value').value || null,
+            optionalParameter: optionalParameter
+          }
+        }).filter((item) => item.key !== '' && item.key !== null && item.value !== '' && item.value !== null)
         extension.field.setValue(json)
       }
 
       let debouncedValidateAndSave = (items, extension) => debounce(validateAndSave(items, extension), 150)
+
+      let csvToArray = (csv) => {
+        return csv.split(",").filter((item) => item !== "").map(item => {
+          [label, value] = item.split(":")
+          return {
+            label: label.trim(),
+            value: (value || label).trim()
+          }
+        })
+      }
       // extension
       let initContentfulKeyValueEditor = extension => {
         let parameters = {
-          keyLabel: extension.parameters.instance.keyLabel,
-          valueLabel: extension.parameters.instance.valueLabel,
-          typeSelect: extension.parameters.instance.typeSelect.split(",").map(string => string.trim()).filter((item) => item !== "")
+          keys: csvToArray(extension.parameters.instance.keys),
+          optionalParameter: csvToArray(extension.parameters.instance.optionalParameter)
         }
         // start autoresiser
         extension.window.startAutoResizer();

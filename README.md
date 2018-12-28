@@ -8,14 +8,18 @@ You can set the following per instance of the editor:
 
 ![Configuration options][configuration]
 
-#### Label for key
-This will be shown in the empty field for the `key`. It defaults to `Name` but could for example be `meta-tag`.
+#### Keys
+If left empty the key will be a normal input field. If a comma separated list is provided, a dropdown will be shown. You can specify the values as shown below.
 
-#### Label for value
-This will be shown in the empty field for the `value`. It defaults to `Value`.
+```bash
+# Using the same string for label and value of the dropdown
+facebook-id, google-id
+# Using a different label and value for the dropdown
+Facebook ID:facebook-id, Google ID:google-id
+```
 
-#### Type Dropdown
-Empty by default (no dropdown will be shown). If you add a list of comma separated values they will be turned into a dropdown and store with the data.
+#### optionalParameter Dropdown
+Empty by default (no dropdown will be shown). If you add a list of comma separated values they will be turned into a dropdown and stored with the data. You can specify the values as shown above.
 
 ## Data structure
 The data will be stored as an array with an object per item.
@@ -24,7 +28,7 @@ The data will be stored as an array with an object per item.
 Array({
   key: "someKey",
   value: "yourValue",
-  type: "Option"
+  optionalParameter: "Option A" || null
 }, {…})
 ```
 ## Installation
